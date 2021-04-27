@@ -36,15 +36,26 @@
 #include "window.h"
 #include "viewporter-client-protocol.h"
 
-#define BUFFER_SCALE 2
+#define BUFFER_SCALE 1
+#define UI_BUFFER_SCALE 0.5f
+
 static const int BUFFER_WIDTH = 421 * BUFFER_SCALE;
 static const int BUFFER_HEIGHT = 337 * BUFFER_SCALE;
+
 static const int SURFACE_WIDTH = 55 * 4;
 static const int SURFACE_HEIGHT = 77 * 4;
-static const double RECT_X = 21 * BUFFER_SCALE; /* buffer coords */
-static const double RECT_Y = 25 * BUFFER_SCALE;
-static const double RECT_W = 55 * BUFFER_SCALE;
-static const double RECT_H = 77 * BUFFER_SCALE;
+
+static const double RECT_X = 21 * UI_BUFFER_SCALE; /* buffer coords */
+static const double RECT_Y = 25 * UI_BUFFER_SCALE;
+static const double RECT_W = 55 * UI_BUFFER_SCALE;
+static const double RECT_H = 77 * UI_BUFFER_SCALE;
+
+static const int GREEN_BOX_WIDTH = 20;
+static const int GREEN_BOX_HEIGHT = 20;
+static const int GREEN_BOX_WIDTH_IN_UI = 20 * UI_BUFFER_SCALE;
+static const int GREEN_BOX_HEIGHT_IN_UI = 20 * UI_BUFFER_SCALE;
+static const int GREEN_BOX_X_IN_UI = (421 - GREEN_BOX_WIDTH) * UI_BUFFER_SCALE;
+static const int GREEN_BOX_Y_IN_UI = (337 - GREEN_BOX_HEIGHT) * UI_BUFFER_SCALE;
 
 struct box {
 	struct display *display;
@@ -73,6 +84,7 @@ set_my_viewport(struct box *box)
 	if (box->mode == MODE_NO_VIEWPORT)
 		return;
 
+    fprintf(stderr, "\n%s %s %d box->mode : %d\n", __FILE__, __FUNCTION__, __LINE__, box->mode);
 	/* Cut the green border in half, take white border fully in,
 	 * and black border fully out. The borders are 1px wide in buffer.
 	 *
@@ -101,15 +113,29 @@ set_my_viewport(struct box *box)
 				       src_width, src_height);
 		break;
 	case MODE_DST_ONLY:
+	    fprintf(stderr, "\nMode MODE_SRC_DST : src_x : %d src_y : %d src_width : %d src_height : %d\n dst_width : %d dst_height : %d\n", wl_fixed_to_int(src_x), wl_fixed_to_int(src_y), wl_fixed_to_int(src_width), wl_fixed_to_int(src_height), dst_width, dst_height);
 		wp_viewport_set_destination(box->viewport,
 					    dst_width, dst_height);
 		break;
+	case MODE_SRC_DST:
+		src_x = wl_fixed_from_double((0 + 0.5) / BUFFER_SCALE);
+		src_y = wl_fixed_from_double((0 + 0.5) / BUFFER_SCALE);
+		src_width = wl_fixed_from_double((GREEN_BOX_X_IN_UI + GREEN_BOX_WIDTH_IN_UI + 1) / BUFFER_SCALE);
+		src_height = wl_fixed_from_double((GREEN_BOX_Y_IN_UI + GREEN_BOX_HEIGHT_IN_UI + 1) / BUFFER_SCALE);
+	    fprintf(stderr, "\nMode MODE_SRC_DST : src_x : %d src_y : %d src_width : %d src_height : %d\n dst_width : %d dst_height : %d\n", wl_fixed_to_int(src_x), wl_fixed_to_int(src_y), wl_fixed_to_int(src_width), wl_fixed_to_int(src_height), dst_width, dst_height);
+		wp_viewport_set_source(box->viewport, src_x, src_y,
+				       src_width, src_height);
+		wp_viewport_set_destination(box->viewport,
+					    dst_width, dst_height);
+		break;
+#if 0
 	case MODE_SRC_DST:
 		wp_viewport_set_source(box->viewport, src_x, src_y,
 				       src_width, src_height);
 		wp_viewport_set_destination(box->viewport,
 					    dst_width, dst_height);
 		break;
+#endif
 	default:
 		assert(!"not reached");
 	}
@@ -138,6 +164,8 @@ redraw_handler(struct widget *widget, void *data)
 		fprintf(stderr, "failed to create cairo egl surface\n");
 		return;
 	}
+    fprintf(stderr, "\n%s %s %d\npoint(%lf, %lf, %lf, %lf)\nbuffer_size(%d, %d)", __FILE__, __FUNCTION__, __LINE__, RECT_X, RECT_Y, RECT_W, RECT_H, BUFFER_WIDTH, BUFFER_HEIGHT);
+    //fprintf(stderr, "\n%s %s %d\npoint(%lf, %lf, %lf, %lf)\nbuffer_size(%d, %d)", __FILE__, __FUNCTION__, __LINE__, RECT_X, RECT_Y, RECT_W, RECT_H, BUFFER_WIDTH, BUFFER_HEIGHT);
 
 	cr = cairo_create(surface);
 	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
@@ -173,11 +201,18 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_line_to(cr, RECT_W, 0.5);
 	cairo_stroke(cr);
 
+	//cairo_translate(cr, 0, 0);
+	cairo_translate(cr, GREEN_BOX_X_IN_UI - RECT_X, GREEN_BOX_Y_IN_UI - RECT_Y);
+	cairo_set_source_rgba(cr, 0, 255, 0, 255);
+	cairo_rectangle(cr, 0, 0, GREEN_BOX_WIDTH_IN_UI, GREEN_BOX_HEIGHT_IN_UI);
+	cairo_fill(cr);
+
 	cairo_destroy(cr);
 
 	/* TODO: buffer_transform */
 
 	cairo_surface_destroy(surface);
+	fprintf(stderr, "\n");
 }
 
 static void
@@ -218,10 +253,19 @@ touch_down_handler(struct widget *widget, struct input *input,
 		   uint32_t serial, uint32_t time, int32_t id,
 		   float x, float y, void *data)
 {
+fprintf(stderr, "\n%s %s %d point(%lf, %lf)\n", __FILE__, __FUNCTION__, __LINE__, x, y);
 	struct box *box = data;
 	window_move(box->window, input,
 		    display_get_serial(box->display));
 }
+
+static int
+motion_handler(struct widget *widget, struct input *input, uint32_t time,
+       float x, float y, void *data) {
+fprintf(stderr, "\n%s %s %d point(%lf, %lf)\n", __FILE__, __FUNCTION__, __LINE__, x, y);
+return CURSOR_LEFT_PTR;
+}
+
 
 static void
 usage(const char *progname)
@@ -236,6 +280,10 @@ usage(const char *progname)
 
 	fprintf(stderr, "Expected output with output_scale=1:\n");
 
+    /*
+        When mode is -n
+        Window Size == (BUFFER_WIDTH, BUFFER_HEIGHT)
+	*/
 	fprintf(stderr, "Mode -n:\n"
 		"  window size %dx%d px\n"
 		"  Red box with a blue box in the upper left part.\n"
@@ -244,6 +292,10 @@ usage(const char *progname)
 		"  be seen only when zoomed in.\n\n",
 		BUFFER_WIDTH / BUFFER_SCALE, BUFFER_HEIGHT / BUFFER_SCALE);
 
+    /*
+        When mode is -b
+        Window Size == (SURFACE_WIDTH, SURFACE_HEIGHT)
+	*/
 	fprintf(stderr, "Mode -b:\n"
 		"  window size %dx%d px\n"
 		"  Blue box with green top and left edge,\n"
@@ -251,11 +303,19 @@ usage(const char *progname)
 		"  and a hint of black in bottom edge.\n\n",
 		SURFACE_WIDTH, SURFACE_HEIGHT);
 
+    /*
+        When mode is -s
+        Window Size == (RECT_W, RECT_H)
+	*/
 	fprintf(stderr, "Mode -s:\n"
 		"  window size %.0fx%.0f px\n"
 		"  The same as mode -b, but scaled a lot smaller.\n\n",
 		RECT_W / BUFFER_SCALE, RECT_H / BUFFER_SCALE);
 
+    /*
+        When mode is -d
+        Window Size == (SURFACE_WIDTH, SURFACE_HEIGHT)
+	*/
 	fprintf(stderr, "Mode -d:\n"
 		"  window size %dx%d px\n"
 		"  This is horizontally squashed version of the -n mode.\n\n",
@@ -270,7 +330,7 @@ main(int argc, char *argv[])
 	struct timeval tv;
 	int i;
 
-	box.mode = MODE_SRC_DST;
+	//box.mode = MODE_SRC_DST;
 
 	for (i = 1; i < argc; i++) {
 		if (strcmp("-s", argv[i]) == 0)
@@ -310,6 +370,7 @@ main(int argc, char *argv[])
 	widget_set_button_handler(box.widget, button_handler);
 	widget_set_default_cursor(box.widget, CURSOR_HAND1);
 	widget_set_touch_down_handler(box.widget, touch_down_handler);
+	widget_set_motion_handler(box.widget, motion_handler);
 
 	window_schedule_resize(box.window, box.width, box.height);
 
