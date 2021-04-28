@@ -47,6 +47,11 @@ on the current release versions of
 If necessary, the latest Meson can be installed as a user with:
 
 	$ pip3 install --user meson
+	
+
+Install dependencies :
+`sudo apt-get install libpipewire-0.2 && sudo apt-get install libgstreamer1.0 && sudo apt-get install libcolord-dev && sudo apt-get install liblcms2-dev && sudo apt-get install libva-dev && sudo apt-get install libsystemd-dev && sudo apt-get install libwebp-dev && sudo apt-get install libjpeg-dev && sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev && sudo apt-get install freerdp2-dev`
+
 
 Weston's Meson build does not do autodetection and it defaults to all
 features enabled, which means you likely hit missing dependencies on the first
